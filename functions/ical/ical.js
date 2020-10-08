@@ -1,29 +1,43 @@
 const fetch = require("node-fetch");
+const date = require("./helpers/date");
 
-exports.handler = async function (event, context) {
+const API_URL = "https://wiadomosci.szczecin.eu/eventapi";
+
+exports.handler = async function (event, _) {
   try {
+    const response = await fetch(
+      `${API_URL}/${event.queryStringParameters.category}/${event.queryStringParameters.slug}`,
+      {
+        Content: "application/json",
+      }
+    );
     const data = await response.json();
+    const eventData = data.post;
 
     return {
       statusCode: 200,
       headers: {
-        "Content-Disposition": "attachment",
-        filename: "dupa.ical",
+        "Content-Disposition": `attachment; filename="${event.queryStringParameters.slug}.ics"`,
       },
       body: `BEGIN:VCALENDAR
 BEGIN:VEVENT
-DTSTART:20200929T17000Z
-SUMMARY:Spotkanie z Katarzyną Bereniką Miszczuk [online]
-DESCRIPTION:Zapraszamy na spotkanie z popularną autorką, Katarzyną Bereniką Miszczuk. Wydarzenie w formie live’a na Facebooku biblioteki: https://www.facebook.com/MiejskaBibliotekaPublicznaWSzczecinie
-LOCATION:ProMedia
+DTSTART:${date.formatToISO(eventData["event_start"])}
+${
+  eventData["event_end"]
+    ? `DTEND:${date.formatToISO(eventData["event_end"])}`
+    : ""
+}
+SUMMARY:${eventData.title}
+DESCRIPTION:${eventData.teaser}
+LOCATION:${eventData.address}
 END:VEVENT
 END:VCALENDAR`,
     };
   } catch (err) {
-    console.log(err); // output to netlify function log
+    console.log(err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ msg: err.message }), // Could be a custom message or object i.e. JSON.stringify(err)
+      body: JSON.stringify({ msg: err.message }),
     };
   }
 };
